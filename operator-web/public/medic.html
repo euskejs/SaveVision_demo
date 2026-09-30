@@ -279,12 +279,18 @@
     const smg=document.getElementById("showMapG"), hmg=document.getElementById("hideMapG"), mgs=document.getElementById("mapGState");
     if(smg) smg.onclick=async ()=>{
       const c2=marker?marker.getLatLng():(map?map.getCenter():null); if(!c2){ mgs.textContent="no location yet"; return; }
-      if(typeof MX==="undefined"||!MX.connected||!MX.connected()){ mgs.textContent="connect to Matrix first"; return; }
       mgs.textContent="rendering map…";
-      try{ const dataUrl=await buildMapImage(c2.lat,c2.lng, map?map.getZoom():16); await MX.send({kind:"image",dataUrl,caption:"🗺 Map — your area"}); mgs.textContent="✓ map shown on glasses"; }
+      try{
+        const dataUrl=await buildMapImage(c2.lat,c2.lng, map?map.getZoom():16);
+        if(typeof window.send==="function"&&window.send({kind:"image",dataUrl,caption:"🗺 Map — your area"})) mgs.textContent="✓ map shown on glasses";
+        else mgs.textContent="join the glasses room or connect to Matrix first";
+      }
       catch(e){ mgs.textContent="✗ "+e.message; }
     };
-    if(hmg) hmg.onclick=async ()=>{ if(typeof MX!=="undefined"&&MX.connected&&MX.connected()){ try{ await MX.send({kind:"clear"}); mgs.textContent="✓ removed from glasses"; }catch(e){ mgs.textContent="✗ "+e.message; } } else mgs.textContent="connect to Matrix first"; };
+    if(hmg) hmg.onclick=()=>{
+      if(typeof window.send==="function"&&window.send({kind:"clearMap"})) mgs.textContent="✓ removed from glasses";
+      else mgs.textContent="join the glasses room or connect to Matrix first";
+    };
 
     // --- AEDs (defibrillators) from OpenStreetMap + walking route → glasses ---
     let aeds=[], routeLine=null;
@@ -386,16 +392,6 @@
     const p=new URLSearchParams(location.search); const caseId=p.get("caseId");
     const modal=document.getElementById("annot"), stage=document.getElementById("annotStage"), img=document.getElementById("annotImg");
     const pal=document.getElementById("annotPalette"); let pending=null; const objs=[];
-    async function ensureMX(){
-      if(typeof MX==="undefined") return false;
-      if(MX.connected && MX.connected()) return true;
-      try{
-        const hs=document.getElementById("mxHs").value.trim(), u=document.getElementById("mxUser").value.trim(), s=document.getElementById("mxSecret").value;
-        const room=(new URLSearchParams(location.search).get("room"))||document.getElementById("mxRoom").value.trim();
-        await MX.login(hs,u,s); await MX.openCase(room,{id:"session",ts:Date.now()});
-        return MX.connected();
-      }catch(e){ return false; }
-    }
     const opSlider=document.getElementById("annotOpacity"), opVal=document.getElementById("annotOpacityVal");
     if(opSlider) opSlider.oninput=()=>{ if(opVal)opVal.textContent=opSlider.value+"%"; img.style.opacity=String(opSlider.value/100); };
     const tpBtn=document.getElementById("annotTransp");
@@ -442,11 +438,10 @@
         const dataUrl=c.toDataURL("image/jpeg",0.8);
         const cap=(document.getElementById("annotCap").value||"").trim()||"How to — follow the markers";
         try{
-          st.textContent="connecting to room…";
-          const ok=await ensureMX();
-          if(ok){ st.textContent="uploading to glasses…"; await MX.send({kind:"image",dataUrl,caption:cap}); st.textContent="✓ sent to glasses + app — room "+String(MX.roomId||"").slice(0,18)+"…"; }
+          st.textContent="sending to glasses…";
+          if(typeof window.send==="function" && window.send({kind:"image",dataUrl,caption:cap})){ st.textContent="✓ sent to glasses"; }
           else if(caseId){ await fetch("/api/cases/"+encodeURIComponent(caseId)+"/guidance",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"image",dataUrl,caption:cap,actor:"operator"})}); st.textContent="⚠ sent to backend only — Matrix not connected (app won't see it)"; }
-          else st.textContent="✗ not connected to Matrix";
+          else st.textContent="✗ not connected — join the glasses room or connect to Matrix";
         }catch(e){ st.textContent="✗ "+e.message; }
         setTimeout(()=>{ if(st.textContent.indexOf("✓")===0) modal.style.display="none"; },1300);
       }; im.src=img.src;

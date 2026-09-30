@@ -155,6 +155,7 @@ function send(payload) {
     sent = true;
   }
   if (!sent) log("Not connected — connect Matrix or join a glasses code", "err");
+  return sent;
 }
 
 function sendGuidance(text) {

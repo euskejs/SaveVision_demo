@@ -219,6 +219,7 @@ function render(p) {
     case "guidance": showBanner(p.text, /stop|unsafe/i.test(p.text)); break;
     case "drawing":  drawStrokes(p.strokes); break;
     case "clear":    octx.clearRect(0, 0, overlay.width, overlay.height); banner.textContent = ""; break;
+    case "clearMap": clearMap(); break;
     case "image":    addImage(p.dataUrl || p.url, p.caption); break;
     case "map":      showMap(p.bearing, p.label); break;
     case "livemap":  showLiveMap(p); break;   // real OSM map, toggled by operator
@@ -288,6 +289,20 @@ function showMap(bearing, label) {
   compass.style.display = "flex";
   arrow.style.transform = `rotate(${bearing || 0}deg)`;
   lbl.textContent = label || "";
+}
+
+function clearMap() {
+  const remaining = images.filter(({ caption = "" }) =>
+    !(/\bmap\b|your location|route to nearest aed/i.test(caption))
+  );
+  images.splice(0, images.length, ...remaining);
+  imgIndex = images.length - 1;
+  if (imgIndex >= 0) renderImageCard();
+  else hideImageCard();
+  closeFullscreen();
+  compass.style.display = "none";
+  el("hudmap").style.display = "none";
+  el("hudmapLbl").style.display = "none";
 }
 
 // ---- boot ----
